@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 Alarm Clock Configuration</title>
+  <style>
+    /* Basic Resets */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Header */
+    header {
+      background: #007BFF;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    #currentTime {
+      font-size: 1rem;
+    }
+
+    /* Main container */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1000px;
+      margin: 1rem auto;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    /* Tab bar */
+    .tabs {
+      display: flex;
+      background: #f9f9f9;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      flex: 1;
+      padding: 0.75rem;
+      text-align: center;
+      cursor: pointer;
+      font-weight: bold;
+      color: #555;
+      border-bottom: 3px solid transparent;
+      transition: background 0.2s;
+    }
+    .tab:hover {
+      background: #eee;
+    }
+    .tab.active {
+      background: #fff;
+      color: #007BFF;
+      border-bottom-color: #007BFF;
+    }
+
+    /* Section containers */
+    .section {
+      display: none;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .section.active {
+      display: block;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+    th, td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #f1f1f1;
+      font-weight: normal;
+    }
+    tr:hover {
+      background: #f9f9f9;
+    }
+
+    /* Form elements */
+    label {
+      display: block;
+      margin-top: 0.75rem;
+      font-weight: bold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    input[type="time"], input[type="number"] {
+      max-width: 200px;
+    }
+    .small-text {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 1rem;
+      max-width: 200px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+
+    /* Flex layout for forms */
+    .flex-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .flex-item {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    /* File Explorer Styles */
+    #fileExplorer {
+      margin-top: 0.5rem;
+    }
+    #path {
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    #fileTable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #fileTable th, #fileTable td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    #fileTable th {
+      background: #f1f1f1;
+    }
+    #fileTable tr:hover {
+      background: #f9f9f9;
+    }
+    .btn {
+      padding: 0.4rem 0.8rem;
+      margin: 0.2rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-primary { background: #007BFF; color: #fff; }
+    .btn-danger  { background: #DC3545; color: #fff; }
+
+    /* Upload Progress Bar */
+    #uploadProgress {
+      display: none;
+      width: 100%;
+      margin-top: 0.5rem;
+      height: 1rem;
+    }
+
+    /* Scrollbars */
+    .section {
+      scrollbar-width: thin;
+      scrollbar-color: #ccc transparent;
+    }
+    .section::-webkit-scrollbar {
+      width: 8px;
+    }
+    .section::-webkit-scrollbar-thumb {
+      background-color: #ccc;
+      border-radius: 4px;
+    }
+    .section::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ESP32 Alarm Clock Configuration</h1>
+    <div id="currentTime"></div>
+  </header>
+  <main>
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="alarmsTab">Alarms</div>
+      <div class="tab" data-tab="settingsTab">Settings</div>
+      <div class="tab" data-tab="filesTab">Files</div>
+      <div class="tab" data-tab="testTab">Test</div>
+      <!-- ===> [Motor Tab] -->
+      <div class="tab" data-tab="motorTab">Motor</div>
+    </div>
+
+    <!-- Alarms Section -->
+    <div class="section active" id="alarmsTab">
+      <h2>Configured Alarms</h2>
+      <table id="alarmsTable">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Audio File</th>
+            <th>Snooze (min)</th>
+            <th>Blink Rate (Hz)</th>
+            <th>Enabled</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+      <div class="small-text">
+        Manage your alarms here. Click “Add New Alarm” to create.
+      </div>
+
+      <div style="margin-top:1rem;">
+        <h3>Add New Alarm</h3>
+        <div class="flex-row">
+          <div class="flex-item">
+            <label for="newAlarmTime">Alarm Time</label>
+            <input type="time" id="newAlarmTime" required />
+          </div>
+          <div class="flex-item">
+            <label for="newAlarmAudio">Audio File</label>
+            <select id="newAlarmAudio">
+              <option value="">Loading...</option>
+            </select>
+            <div class="small-text">Files from <code>/alarms/</code> on SD</div>
+          </div>
+        </div>
+        <div class="flex-row">
+          <div class="flex-item">
+            <label for="newAlarmSnooze">Snooze Duration (min)</label>
+            <input type="number" id="newAlarmSnooze" min="1" max="60" value="5" />
+          </div>
+          <div class="flex-item">
+            <label for="newAlarmBlinkRate">Blink Rate (Hz)</label>
+            <input type="number" id="newAlarmBlinkRate" min="0.5" max="5" step="0.1" value="1" />
+          </div>
+        </div>
+        <button id="addAlarmBtn">Add Alarm</button>
+        <div id="addAlarmStatus" class="small-text"></div>
+      </div>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="section" id="settingsTab">
+      <h2>Global Settings</h2>
+      <div class="flex-row">
+        <div class="flex-item">
+          <label for="defaultSnooze">Default Snooze (min)</label>
+          <input type="number" id="defaultSnooze" min="1" max="60" value="" />
+        </div>
+        <div class="flex-item">
+          <label for="defaultBlinkRate">Default Blink Rate (Hz)</label>
+          <input type="number" id="defaultBlinkRate" min="0.5" max="5" step="0.1" value="" />
+        </div>
+      </div>
+      <button id="saveSettingsBtn">Save Settings</button>
+      <div id="settingsStatus" class="small-text"></div>
+
+      <div style="margin-top:2rem;">
+        <h3>Master Alarm Switch</h3>
+        <label for="masterToggle" style="display:inline-flex; align-items:center;">
+          <input type="checkbox" id="masterToggle" style="margin-right:0.5rem; width:auto;" />
+          Armed
+        </label>
+        <div class="small-text">Toggle to enable or disable all alarms.</div>
+      </div>
+    </div>
+
+    <!-- Files Section -->
+    <div class="section" id="filesTab"> 
+      <h2>File Explorer</h2>
+      <div id="fileExplorer">
+        <div id="path">Path: /</div>
+        <table id="fileTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="upload" style="margin-top:1rem;">
+          <h3>Upload File</h3>
+          <form id="uploadForm" enctype="multipart/form-data">
+            <label for="uploadPath">Target Directory:</label>
+            <input type="text" id="uploadPath" value="/" />
+            <input type="file" id="fileInput" />
+            <button type="submit" class="btn btn-primary">Upload</button>
+          </form>
+          <progress id="uploadProgress" max="100" value="0"></progress>
+          <div id="uploadStatus" class="small-text"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Section -->
+    <div class="section" id="testTab">
+      <h2>Test Alarm</h2>
+      <div class="flex-row">
+        <div class="flex-item">
+          <label for="testAudio">Select Alarm Noise</label>
+          <select id="testAudio">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="flex-item">
+          <button id="setTestAlarmBtn" class="btn btn-primary">Set Test Alarm</button>
+        </div>
+      </div>
+      <div class="small-text" style="margin-top:0.5rem;">
+        Click “Set Test Alarm” to schedule a 10-second alarm that uses the exact same logic
+        your real alarms do.  The UI will immediately switch back to the Alarms tab so you can
+        watch it appear.
+      </div>
+      <div style="margin-top:1rem;">
+        <p>Switch State: <strong><span id="switchState">—</span></strong></p>
+        <p>Countdown: <strong><span id="countdown">—</span> s</strong></p>
+      </div>
+    </div>
+
+    <!-- ===> [Motor Section] -->
+    <div class="section" id="motorTab">
+      <h2>Motor Controls</h2>
+      <label for="variableControl" style="display:inline-flex; align-items:center;">
+        <input type="checkbox" id="variableControl" style="margin-right:0.5rem; width:auto;" />
+        Variable Control
+      </label>
+      <div class="small-text" style="margin-top:0.25rem;">
+        When checked, motor speed = (potentiometer % × Max Speed).
+      </div>
+
+      <label for="maxSpeed" style="margin-top:1rem; font-weight:bold;">
+        Max Speed (steps/sec)
+      </label>
+      <input type="number" id="maxSpeed" min="0" max="200" value="50" />
+
+      <button id="saveMotorBtn" class="btn btn-primary" style="max-width:200px; margin-top:1rem;">
+        Save Motor Settings
+      </button>
+      <div id="motorStatus" class="small-text" style="margin-top:0.5rem;"></div>
+    </div>
+  </main>
+
+  <script>
+    // ---------- Tab Functionality ----------
+    const tabs = document.querySelectorAll('.tab');
+    const sections = document.querySelectorAll('.section');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        sections.forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ---------- Current Time ----------
+    function updateCurrentTime() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('currentTime').textContent = `Local Time: ${hh}:${mm}:${ss}`;
+    }
+    setInterval(updateCurrentTime, 1000);
+    updateCurrentTime();
+
+    // ---------- Audio Files (for Alarm creation & Test) ----------
+    async function loadAudioFiles() {
+      const alarmSelect = document.getElementById('newAlarmAudio');
+      alarmSelect.innerHTML = '<option value="">Loading...</option>';
+      const testSelect = document.getElementById('testAudio');
+      testSelect.innerHTML = '<option value="">Loading...</option>';
+
+      try {
+        const respAl = await fetch(`/fs?path=${encodeURIComponent('/alarms')}`);
+        if (!respAl.ok) throw 'Failed to load /alarms directory';
+        const dataAl = await respAl.json();
+
+        alarmSelect.innerHTML = '';
+        testSelect.innerHTML = '';
+        if (dataAl.files.length === 0) {
+          alarmSelect.innerHTML = '<option value="">(No audio files)</option>';
+          testSelect.innerHTML = '<option value="">(No audio files)</option>';
+        } else {
+          dataAl.files.forEach(fname => {
+            const opt1 = document.createElement('option');
+            opt1.value = fname;
+            opt1.textContent = fname;
+            alarmSelect.appendChild(opt1);
+            const opt2 = document.createElement('option');
+            opt2.value = fname;
+            opt2.textContent = fname;
+            testSelect.appendChild(opt2);
+          });
+        }
+      } catch (e) {
+        alarmSelect.innerHTML = '<option value="">Error loading</option>';
+        testSelect.innerHTML = '<option value="">Error loading</option>';
+        console.error(e);
+      }
+    }
+
+    // ---------- Alarms CRUD ----------
+    async function loadAlarms() {
+      const tbody = document.querySelector('#alarmsTable tbody');
+      tbody.innerHTML = '<tr><td colspan="6">Loading...</td></tr>';
+      try {
+        const resp = await fetch('/api/alarms');
+        if (!resp.ok) throw 'Failed to load alarms';
+        const alarms = await resp.json();
+        tbody.innerHTML = '';
+        if (alarms.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6">(No alarms configured)</td></tr>';
+        } else {
+          alarms.forEach(alarm => {
+            const tr = document.createElement('tr');
+            // Time
+            const tdTime = document.createElement('td');
+            tdTime.textContent = alarm.time;
+            tr.appendChild(tdTime);
+            // Audio
+            const tdAudio = document.createElement('td');
+            tdAudio.textContent = alarm.audio;
+            tr.appendChild(tdAudio);
+            // Snooze
+            const tdSnooze = document.createElement('td');
+            tdSnooze.textContent = alarm.snooze;
+            tr.appendChild(tdSnooze);
+            // Blink Rate
+            const tdBlink = document.createElement('td');
+            tdBlink.textContent = alarm.blinkRate;
+            tr.appendChild(tdBlink);
+            // Enabled
+            const tdEnabled = document.createElement('td');
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = alarm.enabled;
+            chk.addEventListener('change', () => toggleAlarmEnabled(alarm.id, chk.checked));
+            tdEnabled.appendChild(chk);
+            tr.appendChild(tdEnabled);
+            // Actions
+            const tdActions = document.createElement('td');
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Delete';
+            delBtn.className = 'btn btn-danger';
+            delBtn.addEventListener('click', () => deleteAlarm(alarm.id));
+            tdActions.appendChild(delBtn);
+            tr.appendChild(tdActions);
+
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6">Error loading alarms</td></tr>';
+        console.error(e);
+      }
+    }
+
+    document.getElementById('addAlarmBtn').addEventListener('click', async () => {
+      const timeVal = document.getElementById('newAlarmTime').value;
+      const audioVal = document.getElementById('newAlarmAudio').value;
+      const snoozeVal = parseInt(document.getElementById('newAlarmSnooze').value);
+      const blinkRateVal = parseFloat(document.getElementById('newAlarmBlinkRate').value);
+      const status = document.getElementById('addAlarmStatus');
+      status.textContent = '';
+      if (!timeVal || !audioVal || isNaN(snoozeVal) || isNaN(blinkRateVal)) {
+        status.textContent = 'Please fill in all fields.';
+        return;
+      }
+      const payload = {
+        time: timeVal,
+        audio: audioVal,
+        snooze: snoozeVal,
+        blinkRate: blinkRateVal
+      };
+      try {
+        const resp = await fetch('/api/alarms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw txt;
+        }
+        status.textContent = 'Alarm added.';
+        loadAlarms();
+      } catch (e) {
+        status.textContent = 'Error adding alarm.';
+        console.error(e);
+      }
+    });
+
+    async function deleteAlarm(id) {
+      if (!confirm('Delete this alarm?')) return;
+      try {
+        const resp = await fetch(`/api/alarms/${id}`, { method: 'DELETE' });
+        if (!resp.ok) throw 'Delete failed';
+        loadAlarms();
+      } catch (e) {
+        alert('Error deleting alarm.');
+        console.error(e);
+      }
+    }
+
+    async function toggleAlarmEnabled(id, enabled) {
+      try {
+        const resp = await fetch(`/api/alarms/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: enabled })
+        });
+        if (!resp.ok) throw 'Toggle failed';
+      } catch (e) {
+        alert('Error toggling alarm.');
+        console.error(e);
+        loadAlarms();
+      }
+    }
+
+    // ---------- Settings ----------
+    async function loadSettings() {
+      try {
+        const resp = await fetch('/api/settings');
+        if (!resp.ok) throw 'Failed to load settings';
+        const s = await resp.json();
+        document.getElementById('defaultSnooze').value = s.defaultSnooze;
+        document.getElementById('defaultBlinkRate').value = s.defaultBlinkRate;
+        document.getElementById('masterToggle').checked = s.masterEnabled;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+      const ds = parseInt(document.getElementById('defaultSnooze').value);
+      const db = parseFloat(document.getElementById('defaultBlinkRate').value);
+      const status = document.getElementById('settingsStatus');
+      status.textContent = '';
+      if (isNaN(ds) || isNaN(db)) {
+        status.textContent = 'Please enter valid numbers.';
+        return;
+      }
+      const payload = { defaultSnooze: ds, defaultBlinkRate: db };
+      try {
+        const resp = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw 'Save failed';
+        status.textContent = 'Settings saved.';
+      } catch (e) {
+        status.textContent = 'Error saving settings.';
+        console.error(e);
+      }
+    });
+
+    document.getElementById('masterToggle').addEventListener('change', async () => {
+      const enabled = document.getElementById('masterToggle').checked;
+      try {
+        const resp = await fetch('/api/settings/master', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ masterEnabled: enabled })
+        });
+        if (!resp.ok) throw 'Toggle failed';
+      } catch (e) {
+        alert('Error toggling master switch.');
+        console.error(e);
+        loadSettings();
+      }
+    });
+
+    // ---------- File Explorer ----------
+    let currentPath = '/';
+
+    async function loadDirectory(path) {
+      if (!path.startsWith('/')) path = '/' + path;
+      currentPath = path;
+      document.getElementById('path').textContent = 'Path: ' + path;
+      try {
+        const resp = await fetch(`/fs?path=${encodeURIComponent(path)}`);
+        if (!resp.ok) {
+          alert('Failed to load directory.');
+          return;
+        }
+        const data = await resp.json();
+        renderFileTable(data.directories, data.files);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderFileTable(dirs, files) {
+      const tbody = document.querySelector('#fileTable tbody');
+      tbody.innerHTML = '';
+      // Parent link
+      if (currentPath !== '/') {
+        let parent = currentPath.substring(0, currentPath.lastIndexOf('/'));
+        if (parent === '') parent = '/';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = '.. (Parent)';
+        a.onclick = () => loadDirectory(parent);
+        td.appendChild(a);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+      dirs.forEach(dir => {
+        const tr = document.createElement('tr');
+        const tdName = document.createElement('td');
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = dir + '/';
+        a.onclick = () => loadDirectory((currentPath === '/' ? '' : currentPath) + '/' + dir);
+        tdName.appendChild(a);
+        tr.appendChild(tdName);
+
+        const tdType = document.createElement('td');
+        tdType.textContent = 'Directory';
+        tr.appendChild(tdType);
+
+        const tdAction = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-danger';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteEntry((currentPath === '/' ? '' : currentPath) + '/' + dir, true);
+        tdAction.appendChild(delBtn);
+        tr.appendChild(tdAction);
+
+        tbody.appendChild(tr);
+      });
+      files.forEach(file => {
+        const tr = document.createElement('tr');
+        const tdName = document.createElement('td');
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = file;
+        a.onclick = () => window.open((currentPath === '/' ? '' : currentPath) + '/' + file, '_blank');
+        tdName.appendChild(a);
+        tr.appendChild(tdName);
+
+        const tdType = document.createElement('td');
+        tdType.textContent = 'File';
+        tr.appendChild(tdType);
+
+        const tdAction = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-danger';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteEntry((currentPath === '/' ? '' : currentPath) + '/' + file, false);
+        tdAction.appendChild(delBtn);
+        tr.appendChild(tdAction);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteEntry(path, isDir) {
+      if (!confirm(`Delete "${path}"?`)) return;
+      try {
+        const resp = await fetch('/deleteEntry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: path, isDir: isDir })
+        });
+        const text = await resp.text();
+        alert(text);
+        loadDirectory(currentPath);
+      } catch (e) {
+        alert('Error deleting entry.');
+        console.error(e);
+      }
+    }
+
+    // Upload with progress bar
+    document.getElementById('uploadForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      const targetDir = document.getElementById('uploadPath').value.trim();
+      const status = document.getElementById('uploadStatus');
+      const progress = document.getElementById('uploadProgress');
+      status.textContent = '';
+      if (!fileInput.files.length) {
+        alert('Select a file to upload.');
+        return;
+      }
+      const file = fileInput.files[0];
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/upload?path=${encodeURIComponent(targetDir)}`, true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          progress.style.display = 'block';
+          progress.value = percent;
+          status.textContent = `${percent}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status == 200) {
+          status.textContent = 'Upload complete';
+          setTimeout(() => {
+            progress.style.display = 'none';
+            progress.value = 0;
+            status.textContent = '';
+            fileInput.value = '';
+            loadDirectory(currentPath);
+          }, 1000);
+        } else {
+          status.textContent = `Error: ${xhr.status}`;
+        }
+      };
+
+      const fd = new FormData();
+      fd.append('uploadFile', file);
+      xhr.send(fd);
+    });
+
+    // ---------- Test Mode Logic (ALWAYS poll when Test tab is active) ----------
+    let testPollInterval = null;
+
+    function startTestPolling() {
+      if (testPollInterval) return;
+      pollTestStatus();
+      testPollInterval = setInterval(pollTestStatus, 1000);
+    }
+
+    function stopTestPolling() {
+      if (testPollInterval) {
+        clearInterval(testPollInterval);
+        testPollInterval = null;
+      }
+      document.getElementById('switchState').textContent = '—';
+      document.getElementById('countdown').textContent = '—';
+    }
+
+    document.querySelector('[data-tab="testTab"]').addEventListener('click', () => {
+      // When user switches TO the Test tab, start polling
+      startTestPolling();
+    });
+    document.querySelector('[data-tab="alarmsTab"]').addEventListener('click', () => {
+      stopTestPolling();
+    });
+    document.querySelector('[data-tab="settingsTab"]').addEventListener('click', () => {
+      stopTestPolling();
+    });
+    document.querySelector('[data-tab="filesTab"]').addEventListener('click', () => {
+      stopTestPolling();
+    });
+
+    // When user clicks "Set Test Alarm", call /api/test/set
+    document.getElementById('setTestAlarmBtn').addEventListener('click', async () => {
+      const audio = document.getElementById('testAudio').value;
+      if (!audio) {
+        alert('Select an audio file before setting a Test Alarm.');
+        return;
+      }
+      try {
+        // Always enable test-mode first:
+        await fetch('/api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, audio: audio })
+        });
+
+        // Then schedule the 10 second alarm:
+        const resp = await fetch('/api/test/set', { method: 'POST' });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          alert(`Failed to set test alarm: ${txt}`);
+          return;
+        }
+
+        // Immediately switch back to the Alarms tab so user sees it.
+        document.querySelector('.tab[data-tab="alarmsTab"]').click();
+        loadAlarms();
+      } catch (e) {
+        alert('Error setting test alarm.');
+        console.error(e);
+      }
+    });
+
+    async function pollTestStatus() {
+      try {
+        const resp = await fetch('/api/test/status');
+        if (!resp.ok) throw 'Failed to fetch test status';
+        const data = await resp.json();
+        document.getElementById('switchState').textContent = data.switchState;
+        if (data.countdown >= 0) {
+          document.getElementById('countdown').textContent = data.countdown;
+        } else {
+          document.getElementById('countdown').textContent = '—';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ---------- Motor Controls (NEW!) ----------
+    async function loadMotorSettings() {
+      const chk = document.getElementById('variableControl');
+      const maxSpd = document.getElementById('maxSpeed');
+      const status = document.getElementById('motorStatus');
+      status.textContent = '';
+      try {
+        const resp = await fetch('/api/motor');
+        if (!resp.ok) throw 'Failed to load motor settings';
+        const m = await resp.json();
+        chk.checked = m.variableControl;
+        maxSpd.value = m.maxSpeed;
+        if (m.maxSpeed > 0) {
+         maxSpd.value = m.maxSpeed;
+       }
+      } catch (e) {
+        status.textContent = 'Error loading motor settings';
+        console.error(e);
+      }
+    }
+
+    document.getElementById('saveMotorBtn').addEventListener('click', async () => {
+      const chk = document.getElementById('variableControl').checked;
+      const maxSpdVal = parseInt(document.getElementById('maxSpeed').value);
+      const status = document.getElementById('motorStatus');
+      status.textContent = '';
+      if (isNaN(maxSpdVal) || maxSpdVal < 0) {
+        status.textContent = 'Enter a valid max speed.';
+        return;
+      }
+      const payload = {
+        variableControl: chk,
+        maxSpeed: maxSpdVal
+      };
+      try {
+        const resp = await fetch('/api/motor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw 'Save failed';
+        status.textContent = 'Motor settings saved.';
+      } catch (e) {
+        status.textContent = 'Error saving motor settings.';
+        console.error(e);
+      }
+    });
+
+    // Whenever the Motor tab is clicked, (re)load settings:
+    document.querySelector('[data-tab="motorTab"]').addEventListener('click', () => {
+      loadMotorSettings();
+    });
+
+    // ---------- Initialization ----------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAudioFiles();
+      loadAlarms();
+      loadSettings();
+      loadDirectory('/');
+      // Also preload motor settings, in case user lands directly on Motor
+      loadMotorSettings();
+    });
+  </script>
+</body>
+</html>
